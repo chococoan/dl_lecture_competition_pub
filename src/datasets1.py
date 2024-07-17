@@ -1,10 +1,16 @@
 import os
-import numpy as np
 import torch
+import torchaudio
 from typing import Tuple
 from termcolor import cprint
 
-class ThingsMEGDataset(torch.utils.data.Dataset):
+import os
+import torch
+import torchaudio
+from typing import Tuple
+from termcolor import cprint
+
+class ThingsMEGDatasetSpectrogram(torch.utils.data.Dataset):
     def __init__(self, split: str, data_dir: str = "data") -> None:
         super().__init__()
         
@@ -23,10 +29,12 @@ class ThingsMEGDataset(torch.utils.data.Dataset):
         return len(self.X)
 
     def __getitem__(self, i):
+        X = self.X[i]
+        spectrogram = self._convert_to_spectrogram(X)
         if hasattr(self, "y"):
-            return self.X[i], self.y[i], self.subject_idxs[i]
+            return spectrogram, self.y[i], self.subject_idxs[i]
         else:
-            return self.X[i], self.subject_idxs[i] 
+            return spectrogram, self.subject_idxs[i]
 
     @property
     def num_channels(self) -> int:
@@ -35,5 +43,18 @@ class ThingsMEGDataset(torch.utils.data.Dataset):
     @property
     def seq_len(self) -> int:
         return self.X.shape[2]
+
+    def _convert_to_spectrogram(self, X):
+        spectrograms = []
+        mel_spectrogram = torchaudio.transforms.MelSpectrogram(n_fft=512, n_mels=64)
+        for channel_data in X:
+            spectrogram = mel_spectrogram(channel_data.unsqueeze(0))
+            spectrograms.append(spectrogram)
+        spectrograms = torch.stack(spectrograms).squeeze(1)
+        
+        # データの正規化を追加
+        spectrograms = (spectrograms - spectrograms.mean()) / spectrograms.std()
+        
+        return spectrograms
     
 
